@@ -1,4 +1,3 @@
-Here's an updated README.md tailored to your FastAPI backend code:
 
 ```markdown
 # GeoFaceAuth
