@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
@@ -286,36 +285,33 @@ class _FrontCameraScreenState extends State<FrontCameraScreen> {
                   if (mounted) {
                     _showToast("Verification successful!", Colors.green);
 
-                    File? finalCapturedFile;
 
                     // 1. extra is a Map. Let's dig inside it to find the image path!
                     // Check if extra is actually a map
-                    if (extra is Map) {
-                      // 1. Extract the nested map under the "antiSpoofingDetection" key
-                      final antiSpoofingData = extra['antiSpoofingDetection'];
+                    // 1. Extract the nested map under the "antiSpoofingDetection" key
+                    final antiSpoofingData = extra['antiSpoofingDetection'];
 
-                      // 2. Verify the nested map exists before trying to read from it
-                      if (antiSpoofingData is Map) {
+                    // 2. Verify the nested map exists before trying to read from it
+                    if (antiSpoofingData is Map) {
 
-                        // 3. Extract each specific value (using ?? false as a safe fallback)
-                        bool isScreenGlare = antiSpoofingData['screenGlareDetected'] ?? false;
-                        bool isLackOfContours = antiSpoofingData['lackOfFacialContoursDetected'] ?? false;
-                        bool isMotionFailed = antiSpoofingData['motionCorrelationCheckFailed'] ?? false;
-                        bool isScreenFlash = antiSpoofingData['screenFlashSpoofDetected'] ?? false;
-                        bool isDepthSpoof = antiSpoofingData['depthSpoofDetected'] ?? false;
+                      // 3. Extract each specific value (using ?? false as a safe fallback)
+                      bool isScreenGlare = antiSpoofingData['screenGlareDetected'] ?? false;
+                      bool isLackOfContours = antiSpoofingData['lackOfFacialContoursDetected'] ?? false;
+                      bool isMotionFailed = antiSpoofingData['motionCorrelationCheckFailed'] ?? false;
+                      bool isScreenFlash = antiSpoofingData['screenFlashSpoofDetected'] ?? false;
+                      bool isDepthSpoof = antiSpoofingData['depthSpoofDetected'] ?? false;
 
-                        // You can now use these variables
-                        debugPrint("Screen Glare Detected: $isScreenGlare");
-                        debugPrint("Depth Spoof Detected: $isDepthSpoof");
+                      // You can now use these variables
+                      debugPrint("Screen Glare Detected: $isScreenGlare");
+                      debugPrint("Depth Spoof Detected: $isDepthSpoof");
 
-                        // Example logic: Check if ANY spoofing was detected
-                        bool isSuspicious = isScreenGlare || isLackOfContours || isMotionFailed || isScreenFlash || isDepthSpoof;
+                      // Example logic: Check if ANY spoofing was detected
+                      bool isSuspicious = isScreenGlare || isLackOfContours || isMotionFailed || isScreenFlash || isDepthSpoof;
 
-                        if (isSuspicious) {
-                          debugPrint("Warning: Spoofing attempt detected!");
-                        } else {
-                          debugPrint("Liveness checks passed cleanly.");
-                        }
+                      if (isSuspicious) {
+                        debugPrint("Warning: Spoofing attempt detected!");
+                      } else {
+                        debugPrint("Liveness checks passed cleanly.");
                       }
                     }
 
