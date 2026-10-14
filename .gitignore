@@ -1,0 +1,179 @@
+# Do not remove or rename entries in this file, only add new ones
+# See https://github.com/flutter/flutter/issues/128635 for more context.
+
+# Miscellaneous
+*.class
+*.lock
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+
+# As packages are no longer pinned, we use a lockfile for testing locally.
+# When unpinning packages, Using lockfiles ensures that failures in PRs are
+# actually due to those PRs, not due to a package being updated.
+!/pubspec.lock
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Visual Studio Code related
+.classpath
+.project
+.settings/
+.vscode/*
+.ccls-cache
+
+# This file, on the master branch, should never exist or be checked-in.
+#
+# On a *final* release branch, that is, what will ship to stable or beta, the
+# file can be force added (git add --force) and checked-in in order to effectively
+# "pin" the engine artifact version so the flutter tool does not need to use git
+# to determine the engine artifacts.
+#
+# See https://github.com/flutter/flutter/blob/main/docs/tool/Engine-artifacts.md.
+/bin/internal/engine.version
+
+# Flutter repo-specific
+/bin/cache/
+/bin/internal/bootstrap.bat
+/bin/internal/bootstrap.sh
+/bin/internal/engine.realm
+/bin/mingit/
+/dev/benchmarks/mega_gallery/
+/dev/bots/.recipe_deps
+/dev/bots/android_tools/
+/dev/devicelab/ABresults*.json
+/dev/docs/doc/
+/dev/docs/api_docs.zip
+/dev/docs/flutter.docs.zip
+/dev/docs/lib/
+/dev/docs/pubspec.yaml
+/dev/integration_tests/**/xcuserdata
+/dev/integration_tests/**/Pods
+/packages/flutter/coverage/
+version
+analysis_benchmark.json
+
+# packages file containing multi-root paths
+.packages.generated
+
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins-dependencies
+**/generated_plugin_registrant.dart
+.packages
+.pub-preload-cache/
+.pub-cache/
+.pub/
+build/
+flutter_*.png
+linked_*.ds
+unlinked.ds
+unlinked_spec.ds
+
+# Android related
+**/flutter/android/**/gradle-wrapper.jar
+.gradle/
+**/flutter/android/captures/
+**/flutter/android/gradlew
+**/flutter/android/gradlew.bat
+**/flutter/android/**/GeneratedPluginRegistrant.java
+**/flutter/android/key.properties
+*.jks
+local.properties
+**/.cxx/
+
+# iOS/XCode related
+**/flutter/ios/**/*.mode1v3
+**/flutter/ios/**/*.mode2v3
+**/flutter/ios/**/*.moved-aside
+**/flutter/ios/**/*.pbxuser
+**/flutter/ios/**/*.perspectivev3
+**/flutter/ios/**/*sync/
+**/flutter/ios/**/.sconsign.dblite
+**/flutter/ios/**/.tags*
+**/flutter/ios/**/.vagrant/
+**/flutter/ios/**/DerivedData/
+**/flutter/ios/**/Icon?
+**/flutter/ios/**/Pods/
+**/flutter/ios/**/.symlinks/
+**/flutter/ios/**/profile
+**/flutter/ios/**/xcuserdata
+**/flutter/ios/.generated/
+**/flutter/ios/Flutter/.last_build_id
+**/flutter/ios/Flutter/App.framework
+**/flutter/ios/Flutter/Flutter.framework
+**/flutter/ios/Flutter/Flutter.podspec
+**/flutter/ios/Flutter/Generated.xcconfig
+**/flutter/ios/Flutter/ephemeral
+**/flutter/ios/Flutter/app.flx
+**/flutter/ios/Flutter/app.zip
+**/flutter/ios/Flutter/flutter_assets/
+**/flutter/ios/Flutter/flutter_export_environment.sh
+**/flutter/ios/ServiceDefinitions.json
+**/flutter/ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS
+**/flutter/Flutter/ephemeral/
+**/flutter/Pods/
+**/flutter/macos/Flutter/GeneratedPluginRegistrant.swift
+**/flutter/macos/Flutter/ephemeral
+**/flutter/xcuserdata/
+
+# Swift package manager (for code indexing)
+**/flutter/.build/
+
+# Windows
+**/flutter/windows/flutter/ephemeral/
+**/flutter/windows/flutter/generated_plugin_registrant.cc
+**/flutter/windows/flutter/generated_plugin_registrant.h
+**/flutter/windows/flutter/generated_plugins.cmake
+
+# Linux
+**/flutter/linux/flutter/ephemeral/
+**/flutter/linux/flutter/generated_plugin_registrant.cc
+**/flutter/linux/flutter/generated_plugin_registrant.h
+**/flutter/linux/flutter/generated_plugins.cmake
+
+#for python project
+**/python/python_for_server/temp_processing/
+**/python/python_for_server/attendance_images/
+**/python/python_for_server/registered_faces/
+
+
+# Coverage
+coverage/
+
+# Symbols
+app.*.symbols
+
+# Exceptions to above rules.
+!**/ios/**/default.mode1v3
+!**/ios/**/default.mode2v3
+!**/ios/**/default.pbxuser
+!**/ios/**/default.perspectivev3
+!/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
+!/dev/ci/**/Gemfile.lock
+!.vscode/settings.json
+
+# Monorepo
+.cipd
+.gclient
+.gclient_entries
+.python-version
+.gclient_previous_custom_vars
+.gclient_previous_sync_commits
+
+# AI related
+.agents/rules/personal-*
+.agents/skills/personal-*
+/.agent-shell/
