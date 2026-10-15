@@ -37,8 +37,112 @@ class AttendanceScreen extends StatelessWidget {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text("Verifying location and matching face securely..."),
+                    Text("Verifying location and processing..."),
                   ],
+                ),
+              );
+            }
+
+            if (state is AttendanceFetchingPhotos) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    const Text("Fetching reference photos & matching face on device..."),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(state.image, height: 150, width: 150, fit: BoxFit.cover),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            if (state is AttendanceFaceMatchResult) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          state.capturedImage,
+                          height: 220,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Card(
+                        color: state.isMatch ? Colors.green.shade50 : Colors.red.shade50,
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    state.isMatch ? Icons.check_circle : Icons.cancel,
+                                    color: state.isMatch ? Colors.green : Colors.red,
+                                    size: 32,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    state.isMatch ? "Face Match: PASSED" : "Face Match: FAILED",
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: state.isMatch ? Colors.green.shade800 : Colors.red.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 16),
+                              Text(
+                                "On-Device Similarity: ${state.similarityScore.toStringAsFixed(1)}%",
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                state.message,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (state.isMatch) ...[
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.verified),
+                          label: const Text("Confirm & Submit Attendance"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          onPressed: () => context
+                              .read<AttendanceCubit>()
+                              .confirmAttendanceSubmission(state.capturedImage, state.similarityScore),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      TextButton.icon(
+                        icon: const Icon(Icons.refresh),
+                        label: const Text("Retake Photo"),
+                        onPressed: () => _openCameraAndSetImage(context),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }

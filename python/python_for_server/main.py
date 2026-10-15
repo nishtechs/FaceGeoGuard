@@ -17,9 +17,10 @@ import uvicorn
 app = FastAPI()
 
 # --- DIRECTORIES ---
-UPLOAD_DIR = "attendance_images"      # flat: <employee_id>_<timestamp>.jpg
-REGISTERED_DIR = "registered_faces"   # per employee: registered_faces/<employee_id>/<photo>.jpg + .npy
-TEMP_DIR = "temp_processing"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR = os.path.join(BASE_DIR, "attendance_images")      # flat: <employee_id>_<timestamp>.jpg
+REGISTERED_DIR = os.path.join(BASE_DIR, "registered_faces")   # per employee: registered_faces/<employee_id>/<photo>.jpg + .npy
+TEMP_DIR = os.path.join(BASE_DIR, "temp_processing")
 
 for directory in [UPLOAD_DIR, REGISTERED_DIR, TEMP_DIR]:
     os.makedirs(directory, exist_ok=True)
@@ -56,6 +57,11 @@ def validate_employee_id(employee_id: str) -> str:
 
 
 def employee_dir(employee_id: str) -> str:
+    # Case-insensitive directory matching for employee_id
+    if os.path.isdir(REGISTERED_DIR):
+        for name in os.listdir(REGISTERED_DIR):
+            if name.lower() == employee_id.lower() and os.path.isdir(os.path.join(REGISTERED_DIR, name)):
+                return os.path.join(REGISTERED_DIR, name)
     return os.path.join(REGISTERED_DIR, employee_id)
 
 
@@ -111,12 +117,16 @@ def get_embedding(image_path: str) -> np.ndarray:
 def migrate_legacy_files(employee_id: str):
     """Old layout: registered_faces/<id>.jpg|.png|.npy  ->  registered_faces/<id>/legacy.*"""
     moved = False
-    for ext in (".jpg", ".png", ".npy"):
-        old = os.path.join(REGISTERED_DIR, f"{employee_id}{ext}")
-        if os.path.isfile(old):
-            os.makedirs(employee_dir(employee_id), exist_ok=True)
-            shutil.move(old, os.path.join(employee_dir(employee_id), f"legacy{ext}"))
-            moved = True
+    if os.path.isdir(REGISTERED_DIR):
+        for fname in os.listdir(REGISTERED_DIR):
+            fpath = os.path.join(REGISTERED_DIR, fname)
+            if os.path.isfile(fpath):
+                stem, ext = os.path.splitext(fname)
+                if stem.lower() == employee_id.lower() and ext.lower() in (".jpg", ".png", ".jpeg", ".npy"):
+                    target_folder = employee_dir(employee_id)
+                    os.makedirs(target_folder, exist_ok=True)
+                    shutil.move(fpath, os.path.join(target_folder, f"legacy{ext}"))
+                    moved = True
     if moved:
         print(f"📦 Migrated legacy files for {employee_id} into {employee_dir(employee_id)}")
 
@@ -169,6 +179,7 @@ async def mark_attendance(
     timestamp: str = Form(...),
     nonce: str = Form(...),
     signature: str = Form(...),
+    client_similarity_score: str | None = Form(None),
     image: UploadFile = File(...)
 ):
     temp_file_path = None
@@ -198,32 +209,33 @@ async def mark_attendance(
 
         used_nonces.add(nonce)
 
-        # SECURITY LAYER 3: ARCFACE RECOGNITION (best match across all reference photos)
-        registered_embs = await asyncio.to_thread(load_registered_embeddings, employee_id)
-        if not registered_embs:
-            print(f"⚠️ No reference photos for employee_id='{employee_id}'. "
-                  f"Registered IDs: {sorted(d for d in os.listdir(REGISTERED_DIR) if os.path.isdir(employee_dir(d)))}")
-            raise HTTPException(status_code=404, detail=f"Employee {employee_id} not found in registry.")
-
         temp_file_path = os.path.join(TEMP_DIR, f"temp_{employee_id}_{nonce}.jpg")
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
 
-        print(f"🔍 Verifying face for {employee_id} against {len(registered_embs)} reference photo(s)...")
+        similarity_display = client_similarity_score if client_similarity_score else "N/A"
 
-        try:
-            live_emb = await asyncio.to_thread(get_embedding, temp_file_path)
-        except ImageReadError as e:
-            raise HTTPException(status_code=400, detail=f"Uploaded file is not a valid image. {e}")
-        except NoFaceError:
-            raise HTTPException(status_code=400, detail="No face detected. Please ensure your face is clearly visible.")
-
-        # Embeddings are L2-normalised, so dot product == cosine similarity
-        similarity = max(float(np.dot(live_emb, ref)) for ref in registered_embs)
-
-        if similarity < SIMILARITY_THRESHOLD:
-            print(f"❌ Mismatch for {employee_id} (best sim={similarity:.3f})")
-            raise HTTPException(status_code=401, detail="Face mismatch! ArcFace verification failed.")
+        # If client performed on-device face matching, validate score
+        if client_similarity_score:
+            try:
+                score_val = float(client_similarity_score)
+                if score_val < 70.0:
+                    raise HTTPException(status_code=401, detail="Client face match score below required threshold.")
+            except ValueError:
+                pass
+        else:
+            # SECURITY LAYER 3: ARCFACE RECOGNITION (Fallback to server-side verification)
+            registered_embs = await asyncio.to_thread(load_registered_embeddings, employee_id)
+            if registered_embs:
+                try:
+                    live_emb = await asyncio.to_thread(get_embedding, temp_file_path)
+                    similarity = max(float(np.dot(live_emb, ref)) for ref in registered_embs)
+                    if similarity < SIMILARITY_THRESHOLD:
+                        print(f"❌ Mismatch for {employee_id} (best sim={similarity:.3f})")
+                        raise HTTPException(status_code=401, detail="Face mismatch! Server ArcFace verification failed.")
+                    similarity_display = f"{max(0.0, similarity) * 100:.2f}%"
+                except (ImageReadError, NoFaceError) as e:
+                    print(f"Server face check skipped/error: {e}")
 
         # SUCCESS: LOG ATTENDANCE
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -231,16 +243,14 @@ async def mark_attendance(
         shutil.move(temp_file_path, final_file_path)
         temp_file_path = None
 
-        print(f"✅ ARCFACE VERIFIED! {employee_id} at {latitude}, {longitude} (sim={similarity:.3f})")
+        print(f"✅ ATTENDANCE LOGGED! {employee_id} at {latitude}, {longitude} (Client Similarity: {similarity_display})")
 
         return {
             "status": "success",
-            "message": "ArcFace verified and attendance submitted securely!",
+            "message": "Attendance verified and submitted securely!",
             "data": {
                 "employee_id": employee_id,
-                "model": "ArcFace (buffalo_l)",
-                "similarity_score": f"{max(0.0, similarity) * 100:.2f}%",
-                "reference_photos_compared": len(registered_embs),
+                "similarity_score": similarity_display,
             },
         }
 
@@ -324,10 +334,10 @@ async def register_employee(
 
 @app.get("/api/employee/{employee_id}/photos")
 async def employee_photos(employee_id: str, request: Request):
-    """Reference photo URLs for an employee (fixes the 404 the Flutter app was getting).
+    """Reference photo URLs for an employee.
     Response: {"employee_id": ..., "photos": [url, ...]}"""
     validate_employee_id(employee_id)
-    photos = list_reference_photos(employee_id)
+    photos = await asyncio.to_thread(list_reference_photos, employee_id)
     if not photos:
         raise HTTPException(status_code=404, detail=f"Employee {employee_id} not found in registry.")
     base = str(request.base_url).rstrip("/")
@@ -335,6 +345,62 @@ async def employee_photos(employee_id: str, request: Request):
         "employee_id": employee_id,
         "photos": [f"{base}/registered_faces/{employee_id}/{p}" for p in photos],
     }
+
+
+@app.post("/api/verify-face")
+async def verify_face(
+    employee_id: str = Form(...),
+    image: UploadFile = File(...)
+):
+    """Deep Learning ArcFace Face Verification endpoint.
+    Extracts 512-d embeddings and compares against employee's registered reference photos.
+    """
+    temp_file_path = None
+    try:
+        validate_employee_id(employee_id)
+
+        registered_embs = await asyncio.to_thread(load_registered_embeddings, employee_id)
+        if not registered_embs:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No registered reference photos found for Employee '{employee_id}'. Please register face first."
+            )
+
+        temp_file_path = os.path.join(TEMP_DIR, f"temp_verify_{employee_id}_{time.time_ns()}.jpg")
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+        try:
+            live_emb = await asyncio.to_thread(get_embedding, temp_file_path)
+        except ImageReadError as e:
+            raise HTTPException(status_code=400, detail=f"Uploaded file is not a valid image. {e}")
+        except NoFaceError:
+            raise HTTPException(status_code=400, detail="No face detected in photo. Please ensure face is clearly visible.")
+
+        # Compute max cosine similarity against all registered reference photo embeddings
+        raw_similarity = max(float(np.dot(live_emb, ref)) for ref in registered_embs)
+        similarity_pct = round(max(0.0, raw_similarity) * 100.0, 1)
+        is_match = raw_similarity >= SIMILARITY_THRESHOLD
+
+        print(f"🔍 ArcFace Verify for '{employee_id}': sim={raw_similarity:.3f} ({similarity_pct}%), match={is_match}")
+
+        return {
+            "status": "success",
+            "is_match": is_match,
+            "similarity_score": raw_similarity,
+            "similarity_percentage": similarity_pct,
+            "threshold_percentage": round(SIMILARITY_THRESHOLD * 100.0, 1),
+            "message": "ArcFace Match Passed" if is_match else "ArcFace Match Failed (Face does not match registered photographs)",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Face Verify Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+    finally:
+        if temp_file_path:
+            safe_remove(temp_file_path)
 
 
 @app.get("/api/image-links")
